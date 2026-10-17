@@ -65,6 +65,8 @@ function Index() {
   const [exploring, setExploring] = useState(false);
   const [exploreError, setExploreError] = useState("");
   const [pick, setPick] = useState<ExplorePick | null>(null);
+  const [hiddenCols, setHiddenCols] = useState<string[]>([]);
+  const [columnsOpen, setColumnsOpen] = useState(false);
   const navigate = useNavigate();
   const research = useResearch();
   const startupsQuery = useQuery({
@@ -80,6 +82,7 @@ function Index() {
   });
   const rows = startupsQuery.data ?? [];
   const list = useMemo(() => [...rows].sort((a, b) => b.thesisFit - a.thesisFit), [rows]);
+  const visibleCols = cols.filter((column) => !hiddenCols.includes(column.key));
 
   function togglePick(id: string) {
     setPicked((current) => {
@@ -104,6 +107,35 @@ function Index() {
             <option value="">All sectors</option>
             {(sectorsQuery.data ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
+          <div className="relative z-30">
+            <button
+              type="button"
+              aria-expanded={columnsOpen}
+              onClick={() => setColumnsOpen((open) => !open)}
+              className="h-10 rounded-full border bg-card px-5 text-sm font-medium text-deep hover:bg-muted"
+            >
+              Columns{hiddenCols.length > 0 ? ` · ${visibleCols.length}` : ""}
+            </button>
+            {columnsOpen && (
+              <div className="absolute right-0 mt-2 w-72 rounded-2xl border bg-card p-3 shadow-soft">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Show columns</p>
+                  <button type="button" onClick={() => setHiddenCols([])} className="text-xs text-primary hover:underline">Show all</button>
+                </div>
+                {cols.map((column) => (
+                  <label key={column.key} className="flex items-center gap-2 rounded-lg px-1 py-1.5 text-sm text-deep hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={!hiddenCols.includes(column.key)}
+                      onChange={() => setHiddenCols((current) => current.includes(column.key) ? current.filter((key) => key !== column.key) : [...current, column.key])}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    {column.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <button onClick={() => setLinkOpen(true)} className="h-10 rounded-full border bg-card px-5 text-sm font-medium text-deep hover:bg-muted">
             Add from link
           </button>
@@ -146,7 +178,7 @@ function Index() {
           <thead>
             <tr>
               <th className="sticky left-0 top-0 z-20 w-72 border-b border-r bg-secondary px-4 py-3 text-left font-semibold text-deep">Startup</th>
-              {cols.map((c) => (
+              {visibleCols.map((c) => (
                 <th key={c.key} className={`sticky top-0 z-10 ${c.w} min-w-44 border-b border-r bg-secondary px-4 py-3 text-left font-semibold text-deep`}>{c.label}</th>
               ))}
             </tr>
@@ -200,7 +232,7 @@ function Index() {
                     </div>
                   </div>
                 </td>
-                {cols.map((c) => (
+                {visibleCols.map((c) => (
                   <td key={c.key} className="border-b border-r px-4 py-3 leading-relaxed group-hover:bg-muted/50">{c.get(r) || <span className="text-muted-foreground">—</span>}</td>
                 ))}
               </tr>

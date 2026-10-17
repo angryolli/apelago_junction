@@ -174,6 +174,13 @@ class CompareResult(BaseModel):
     explanation: str
 
 
+class Inquiry(BaseModel):
+    questions: list[str]
+    risks: list[str]
+    introductions: list[str]
+    opportunities: list[str]
+
+
 class ExploreResult(BaseModel):
     name: str
     why: str

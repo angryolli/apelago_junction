@@ -1,8 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
-import { ApiError, getStartup } from "@/lib/api";
+import { ApiError, createInquiry, getStartup, type Inquiry } from "@/lib/api";
 import { useResearch } from "@/lib/use-research";
 
 export const Route = createFileRoute("/startups/$id")({
@@ -36,6 +37,19 @@ const typeStyle: Record<string, string> = {
   Client: "bg-primary-soft text-deep",
 };
 
+function InquiryList({ title, items, ordered = false }: { title: string; items: string[]; ordered?: boolean }) {
+  const List = ordered ? "ol" : "ul";
+
+  return (
+    <div className="mt-5">
+      <h3 className="text-sm font-semibold text-deep">{title}</h3>
+      <List className={`mt-2 space-y-2 text-sm text-deep ${ordered ? "list-decimal pl-5" : "list-disc pl-5"}`}>
+        {items.map((item) => <li key={item}>{item}</li>)}
+      </List>
+    </div>
+  );
+}
+
 function Detail() {
   const { id } = Route.useParams();
   const loaded = Route.useLoaderData();
@@ -45,6 +59,16 @@ function Detail() {
     staleTime: 30_000,
     ...(loaded ? { initialData: loaded } : {}),
   });
+  const research = useResearch();
+  const [shownFor, setShownFor] = useState(id);
+  const [inquiry, setInquiry] = useState<Inquiry | null>(null);
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState("");
+  if (shownFor !== id) {
+    setShownFor(id);
+    setInquiry(null);
+    setAskError("");
+  }
   const s = query.data;
   if (query.isPending) {
     return <Shell><Link to="/" className="text-sm text-primary">← Back</Link><p className="mt-6 text-muted-foreground">Loading assessment…</p></Shell>;
@@ -66,7 +90,6 @@ function Detail() {
     ["Technology Readiness (TRL)", s.readiness.tech],
     ["Investment Readiness", s.readiness.investment],
   ] as const;
-  const research = useResearch();
   const sourceLabels: Record<string, string> = {
     website: "Company website",
     dealroom: "Dealroom",
@@ -93,15 +116,45 @@ function Detail() {
               <p className="mt-1">{s.aiThoughts}</p>
             </div>
           )}
-          <button
-            onClick={() => void research.start({ ids: [s.id] })}
-            disabled={research.status?.status === "running"}
-            className="mt-4 h-10 rounded-full bg-ocean px-5 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            {research.status?.status === "running" ? `Researching ${research.status.current || "sources"}…` : "Research this company"}
-          </button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              onClick={() => void research.start({ ids: [s.id] })}
+              disabled={research.status?.status === "running"}
+              className="h-10 rounded-full bg-ocean px-5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              {research.status?.status === "running" ? `Researching ${research.status.current || "sources"}…` : "Research this company"}
+            </button>
+            <button
+              type="button"
+              disabled={asking}
+              onClick={() => {
+                setAsking(true);
+                setAskError("");
+                void createInquiry(s.id)
+                  .then((result) => setInquiry(result))
+                  .catch((error: unknown) => {
+                    setAskError(error instanceof ApiError ? error.message : "The investor questions could not be written.");
+                  })
+                  .finally(() => setAsking(false));
+              }}
+              className="h-10 rounded-full border bg-card px-5 text-sm font-medium text-deep disabled:opacity-60"
+            >
+              {asking ? "Writing questions…" : "Investor questions"}
+            </button>
+          </div>
+          {askError && <p className="mt-3 text-sm text-destructive">{askError}</p>}
         </div>
       </div>
+
+      {inquiry && (
+        <section className="mt-6 rounded-2xl border bg-card p-6">
+          <h2 className="font-semibold text-deep">Investor inquiry</h2>
+          <InquiryList title="Questions to investigate" items={inquiry.questions} ordered />
+          <InquiryList title="Outstanding risks" items={inquiry.risks} />
+          <InquiryList title="Suggested introductions" items={inquiry.introductions} />
+          <InquiryList title="Funding and partnership opportunities" items={inquiry.opportunities} />
+        </section>
+      )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         <section className="rounded-2xl border bg-card p-6 lg:col-span-1">

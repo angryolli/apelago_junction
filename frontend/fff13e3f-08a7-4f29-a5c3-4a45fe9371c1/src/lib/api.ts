@@ -112,6 +112,17 @@ export type ExplorePick = {
   website: string;
 };
 
+export type Inquiry = {
+  questions: string[];
+  risks: string[];
+  introductions: string[];
+  opportunities: string[];
+};
+
+export function createInquiry(id: string): Promise<Inquiry> {
+  return request<Inquiry>(`/api/startups/${encodeURIComponent(id)}/inquiry`, { method: "POST" });
+}
+
 export function exploreStartup(): Promise<ExplorePick> {
   return request<ExplorePick>("/api/explore", { method: "POST" });
 }

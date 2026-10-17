@@ -239,6 +239,25 @@ def test_explore_returns_a_startup_outside_the_table(client: TestClient, monkeyp
     assert response.json()["name"] not in {item["name"] for item in client.get("/api/startups").json()}
 
 
+def test_inquiry_writes_five_questions(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    response = client.post("/api/startups/npharvest/inquiry")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["questions"]) == 5
+    assert body["questions"][0].startswith("Confirm whether")
+    assert body["risks"]
+    assert body["introductions"]
+    assert body["opportunities"]
+
+
+def test_inquiry_unknown_startup(client: TestClient) -> None:
+    response = client.post("/api/startups/missing-co/inquiry")
+
+    assert response.status_code == 404
+
+
 def test_explore_requires_an_api_key(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     response = client.post("/api/explore")

@@ -9,12 +9,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.repository import Repository
 from app.research.compare import explain_match
 from app.research.explore import ExploreError, find_one
+from app.research.inquire import investor_inquiry
 from app.research.jobs import enqueue, get_status, start_research
 from app.research.links import find_by_website, queued_startup, target_from_link
 from app.schemas import (
     CompareRequest,
     CompareResult,
     ExploreResult,
+    Inquiry,
     CreateFromLink,
     CreateStartup,
     LinkCreated,
@@ -174,6 +176,16 @@ def compare_startups(body: CompareRequest, repo: Repo) -> CompareResult:
         preferred_name=preferred.name,
         explanation=judgement.explanation,
     )
+
+
+@app.post("/api/startups/{startup_id}/inquiry")
+def startup_inquiry(startup_id: str, repo: Repo) -> Inquiry:
+    """Write investor questions from one stored assessment."""
+    startup = repo.get(startup_id)
+    if startup is None:
+        raise HTTPException(status_code=404, detail="Startup not found")
+
+    return investor_inquiry(startup)
 
 
 @app.post("/api/explore")
