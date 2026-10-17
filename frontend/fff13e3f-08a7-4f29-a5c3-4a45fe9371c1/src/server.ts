@@ -44,8 +44,46 @@ function isH3SwallowedErrorBody(body: string): boolean {
   }
 }
 
+function apiOrigin(): string {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+
+  return env?.API_URL?.replace(/\/$/, "") ?? "";
+}
+
+async function proxyApi(request: Request): Promise<Response> {
+  const origin = apiOrigin();
+  if (!origin) {
+    return new Response("API_URL is not set", { status: 500 });
+  }
+
+  const incoming = new URL(request.url);
+  const headers = new Headers(request.headers);
+  headers.delete("host");
+  const hasBody = request.method !== "GET" && request.method !== "HEAD";
+
+  return fetch(`${origin}${incoming.pathname}${incoming.search}`, {
+    method: request.method,
+    headers,
+    body: hasBody ? await request.arrayBuffer() : undefined,
+    redirect: "manual",
+  });
+}
+
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
+    const url = new URL(request.url);
+    if (url.pathname === "/health") {
+      return new Response("ok", { status: 200, headers: { "content-type": "text/plain" } });
+    }
+    if (url.pathname.startsWith("/api")) {
+      try {
+        return await proxyApi(request);
+      } catch (error) {
+        console.error(error);
+        return new Response("The API could not be reached", { status: 502 });
+      }
+    }
+
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
