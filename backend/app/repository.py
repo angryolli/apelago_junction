@@ -21,6 +21,7 @@ def search_text(startup: Startup) -> str:
         profile.website,
         profile.hq,
         profile.founders,
+        profile.email,
         profile.description,
         " ".join(profile.keywords),
         " ".join(hit.title for hit in startup.sources),

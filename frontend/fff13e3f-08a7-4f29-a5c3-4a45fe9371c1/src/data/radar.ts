@@ -39,6 +39,7 @@ export type Profile = {
   website: string;
   hq: string;
   founders: string;
+  email: string;
   description: string;
   keywords: string[];
   problem: string;
@@ -58,6 +59,7 @@ export const emptyProfile: Profile = {
   website: "",
   hq: "",
   founders: "",
+  email: "",
   description: "",
   keywords: [],
   problem: "",

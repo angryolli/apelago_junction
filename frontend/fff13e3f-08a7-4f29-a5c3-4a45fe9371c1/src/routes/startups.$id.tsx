@@ -29,12 +29,111 @@ export const Route = createFileRoute("/startups/$id")({
   component: Detail,
 });
 
-const typeStyle: Record<string, string> = {
-  Investor: "bg-primary text-primary-foreground",
-  Grant: "bg-accent text-accent-foreground",
-  Partner: "bg-secondary text-secondary-foreground",
-  Client: "bg-primary-soft text-deep",
-};
+function roleFor(text: string, name: string): string {
+  const roleMatch = text.match(new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^.]*?\\bas ([^.;,]{3,80})`, "i"));
+  const titled = text.match(/,\s*([A-Za-z][A-Za-z &-]{1,32})\s*$/)?.[1].trim();
+  const sentence = /\b(is|as|the|identifies|names)\b/i.test(text);
+  const role = roleMatch?.[1].split(/\s+and\s+(?=(describes|says|identifies|names|does|notes)\b)/i)[0].trim()
+    ?? titled
+    ?? (/co-founder/i.test(text) ? "Co-founder" : /founder/i.test(text) || !sentence ? "Founder" : /\bCEO\b/.test(text) ? "CEO" : "Contact");
+  return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+function contactPerson(founders: string): { name: string; role: string } | null {
+  const text = founders.trim();
+  if (!text) return null;
+  const named = text.match(/(?:identifies|names) ((?:Dr\. )?[A-ZÀ-Ý][\p{L}'’-]+(?: [A-ZÀ-Ý][\p{L}'’-]+){0,3})/u)
+    ?? text.match(/^((?:Dr\. )?[A-ZÀ-Ý][\p{L}'’-]+(?: [A-ZÀ-Ý][\p{L}'’-]+){0,3})/u);
+  if (!named) return null;
+  const name = named[1].trim();
+  return { name, role: roleFor(text, name) };
+}
+
+function personMatchingEmail(founders: string, email: string): { name: string; role: string } | null {
+  const local = email.split("@")[0]?.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase() ?? "";
+  const names = founders.match(/(?:Dr\. )?[A-ZÀ-Ý][\p{L}'’-]+(?: [A-ZÀ-Ý][\p{L}'’-]+){1,3}/gu) ?? [];
+  for (const raw of names) {
+    const name = raw.replace(/^Dr\. /, "");
+    const tokens = name.split(/\s+/).map((part) => part.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase());
+    if (tokens.some((token) => token.length >= 3 && local.includes(token))) {
+      return { name, role: roleFor(founders, name) };
+    }
+  }
+  return null;
+}
+
+function initials(name: string): string {
+  return name.split(/\s+/).filter((part) => part !== "Dr.").slice(0, 2).map((part) => part[0]).join("");
+}
+
+function websiteHref(website: string): string {
+  if (!website) return "";
+  return website.startsWith("http") ? website : `https://${website}`;
+}
+
+function recorded(value: string): boolean {
+  const text = value.trim();
+  return text !== "" && text !== "—" && text !== "-" && text !== "–";
+}
+
+function headerFacts(startup: { sector: string; country: string; stage: string; founded: number; raised: string; team: number }) {
+  const stage = startup.stage.trim();
+  const stageNote = recorded(stage) && (stage.length > 32 || /[;.]/.test(stage));
+  const facts = [
+    startup.sector,
+    startup.country,
+    stageNote ? "" : stage,
+    startup.founded ? `Founded ${startup.founded}` : "",
+    startup.team ? `${startup.team} people` : "",
+    recorded(startup.raised) ? `Raised ${startup.raised}` : "",
+  ].filter(recorded);
+  return { facts, stageNote: stageNote ? stage : "" };
+}
+
+function ContactCard({ founders, website, email }: { founders: string; website: string; email: string }) {
+  const person = (email ? personMatchingEmail(founders, email) : null) ?? contactPerson(founders);
+  const href = websiteHref(website);
+  const samePerson = founders.trim() === person?.name || founders.trim() === `${person?.name}, ${person?.role}`;
+  const note = founders.trim() && !samePerson ? founders.trim() : "";
+
+  return (
+    <section className="mt-6 rounded-2xl border bg-card p-6">
+      <p className="text-xs uppercase tracking-widest text-muted-foreground">Contact for further information</p>
+      <div className="mt-4 flex items-start gap-4">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-ocean text-sm font-semibold text-primary-foreground">
+          {person ? initials(person.name) : "—"}
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-deep">{person?.name ?? "No named contact"}</h2>
+          <p className="text-sm text-muted-foreground">{person?.role ?? "The assessment does not name a person yet."}</p>
+          {note && <p className="mt-3 max-w-2xl text-sm leading-relaxed text-deep">{note}</p>}
+          {email ? (
+            <a href={`mailto:${email}`} className="mt-3 block text-sm font-medium text-primary hover:underline">
+              {email}
+            </a>
+          ) : (
+            <p className="mt-3 text-sm text-muted-foreground">No published email</p>
+          )}
+          {href && (
+            <a href={href} target="_blank" rel="noreferrer" className="mt-1 inline-block text-sm text-primary hover:underline">
+              {website}
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TenScale({ value }: { value: number }) {
+  return (
+    <div className="flex gap-1" aria-hidden="true">
+      {Array.from({ length: 10 }, (_, index) => (
+        <div key={index} className={`h-2 flex-1 rounded-full ${index < value ? "bg-primary" : "bg-muted"}`} />
+      ))}
+    </div>
+  );
+}
 
 function InquiryList({ title, items, ordered = false }: { title: string; items: string[]; ordered?: boolean }) {
   const List = ordered ? "ol" : "ul";
@@ -88,6 +187,7 @@ function Detail() {
     ["Technology Readiness (TRL)", s.readiness.tech],
     ["Investment Readiness", s.readiness.investment],
   ] as const;
+  const { facts, stageNote } = headerFacts(s);
   const sourceLabels: Record<string, string> = {
     website: "Company website",
     dealroom: "Dealroom",
@@ -101,17 +201,28 @@ function Detail() {
     <Shell>
       <Link to="/" className="text-sm text-primary hover:underline">← Back to radar</Link>
 
-      <div className="mt-4 flex flex-wrap items-center gap-6 rounded-2xl border bg-card p-8">
+      <div className="mt-4 flex flex-col gap-5 rounded-2xl border bg-card p-5 sm:flex-row sm:items-start sm:gap-6 sm:p-8">
         {s.assessed ? <ScoreTip row={s}><Score value={s.thesisFit} size={96} /></ScoreTip> : <span className="grid h-24 w-24 place-items-center rounded-full border text-sm text-muted-foreground">Not scored</span>}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <p className="text-xs uppercase tracking-widest text-muted-foreground">{s.assessed ? "Thesis fit" : "Awaiting assessment"}</p>
           <h1 className="text-3xl font-semibold text-deep"><ScoreTip row={s}><span>{s.name}</span></ScoreTip></h1>
-          <p className="text-muted-foreground">{s.tagline}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{s.sector} · {s.country} · {s.stage}{s.founded ? ` · founded ${s.founded}` : ""}{s.team ? ` · ${s.team} people` : ""} · raised {s.raised}</p>
+          <p className="max-w-2xl leading-relaxed text-muted-foreground">{s.tagline}</p>
+          {(facts.length > 0 || stageNote) && (
+            <div className="mt-3 space-y-2">
+              {facts.length > 0 && (
+                <ul className="flex flex-wrap gap-2">
+                  {facts.map((fact) => (
+                    <li key={fact} className="rounded-xl bg-secondary px-3 py-1 text-sm leading-5 text-muted-foreground">{fact}</li>
+                  ))}
+                </ul>
+              )}
+              {stageNote && <p className="max-w-2xl text-sm leading-6 text-deep">{stageNote}</p>}
+            </div>
+          )}
           {s.aiThoughts && (
-            <div className="mt-3 max-w-xl rounded-xl bg-primary-soft p-3 text-sm text-deep">
+            <div className="mt-3 max-w-2xl rounded-xl bg-primary-soft p-4 text-sm text-deep">
               <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">AI thoughts · predicted fit {s.predictedFit}</p>
-              <p className="mt-1">{s.aiThoughts}</p>
+              <p className="mt-2 leading-6">{s.aiThoughts}</p>
             </div>
           )}
           <div className="mt-4 flex flex-wrap gap-3">
@@ -137,6 +248,8 @@ function Detail() {
         </div>
       </div>
 
+      <ContactCard founders={s.profile.founders} website={s.profile.website} email={s.profile.email} />
+
       {inquiry && (
         <section className="mt-6 rounded-2xl border bg-card p-6">
           <h2 className="font-semibold text-deep">Investor inquiry</h2>
@@ -154,12 +267,8 @@ function Detail() {
           <div className={`space-y-4 ${s.assessed ? "" : "mt-4 opacity-40"}`}>
             {levels.map(([l, v]) => (
               <div key={l}>
-                <div className="mb-1 flex justify-between text-sm"><span>{l}</span><span className="font-semibold text-deep">{v}/9</span></div>
-                <div className="flex gap-1">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className={`h-2 flex-1 rounded-full ${i < v ? "bg-primary" : "bg-muted"}`} />
-                  ))}
-                </div>
+                <div className="mb-1 flex justify-between text-sm"><span>{l}</span><span className="font-semibold text-deep">{v}/10</span></div>
+                <TenScale value={v} />
               </div>
             ))}
           </div>
@@ -172,33 +281,20 @@ function Detail() {
             {s.dimensions.map((d) => (
               <div key={d.name}>
                 <div className="mb-1 flex justify-between text-sm"><span>{d.name}</span><span className="text-muted-foreground">{d.score}/10</span></div>
-                <div className="h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-ocean" style={{ width: `${d.score * 10}%` }} /></div>
+                <TenScale value={d.score} />
               </div>
             ))}
           </div>
         </section>
 
-        <section className="rounded-2xl border bg-card p-6">
-          <h2 className="mb-3 font-semibold text-deep">Why it's promising</h2>
-          <ul className="space-y-2 text-sm">{s.signals.map((x) => <li key={x} className="flex gap-2"><span className="text-primary">●</span>{x}</li>)}</ul>
-          <h2 className="mb-3 mt-6 font-semibold text-deep">Risks</h2>
-          <ul className="space-y-2 text-sm">{s.risks.map((x) => <li key={x} className="flex gap-2"><span className="text-warning">▲</span>{x}</li>)}</ul>
-        </section>
-
-        <section className="rounded-2xl border bg-card p-6 lg:col-span-2">
-          <h2 className="mb-4 font-semibold text-deep">Prioritized opportunities</h2>
-          <div className="space-y-3">
-            {[...s.matches].sort((a, b) => b.fit - a.fit).map((m, i) => (
-              <div key={m.name} className="flex items-center gap-4 rounded-xl bg-muted/60 p-3">
-                <span className="w-5 font-display text-muted-foreground">{i + 1}</span>
-                <span className={`w-20 rounded-full px-2 py-0.5 text-center text-xs ${typeStyle[m.type]}`}>{m.type}</span>
-                <div className="flex-1">
-                  <div className="font-medium text-deep">{m.name} <span className="text-xs text-muted-foreground">· {m.region}</span></div>
-                  <div className="text-xs text-muted-foreground">{m.why}</div>
-                </div>
-                <span className="font-display font-semibold text-primary">{m.fit}%</span>
-              </div>
-            ))}
+        <section className="grid gap-8 rounded-2xl border bg-card p-6 lg:col-span-3 lg:grid-cols-2">
+          <div>
+            <h2 className="mb-3 font-semibold text-deep">Why it's promising</h2>
+            <ul className="space-y-2 text-sm">{s.signals.map((x) => <li key={x} className="flex gap-2"><span className="text-primary">●</span>{x}</li>)}</ul>
+          </div>
+          <div>
+            <h2 className="mb-3 font-semibold text-deep">Risks</h2>
+            <ul className="space-y-2 text-sm">{s.risks.map((x) => <li key={x} className="flex gap-2"><span className="text-warning">▲</span>{x}</li>)}</ul>
           </div>
         </section>
       </div>

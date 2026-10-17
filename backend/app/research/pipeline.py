@@ -3,6 +3,7 @@
 import os
 
 from app.assess import DIMENSION_NAMES
+from app.research.contact import find_published_contact
 from app.research.links import QUEUED_TAGLINE, search_queries
 from app.research.llm import JudgedAssessment, score_evidence
 from app.research.sources import collect_sources
@@ -88,6 +89,16 @@ def enrich_from_sources(startup: Startup) -> None:
         if sentence:
             startup.tagline = sentence[:180]
             startup.profile.description = startup.tagline
+
+    if not startup.profile.email and startup.profile.website:
+        email, label = find_published_contact(
+            startup.profile.website,
+            startup.profile.founders,
+        )
+        if email:
+            startup.profile.email = email
+        if label and not startup.profile.founders.strip():
+            startup.profile.founders = label
 
     if register is None:
         return

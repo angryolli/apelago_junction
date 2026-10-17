@@ -71,6 +71,14 @@ const cols: { key: string; label: string; w: string; get: (r: Row) => React.Reac
 
 const compareLimit = 4;
 
+function fitDifference(real: number, predicted: number): string {
+  const gap = predicted - real;
+  if (gap === 0) return "No difference";
+  const points = Math.abs(gap);
+  const word = points === 1 ? "point" : "points";
+  return gap < 0 ? `${points} ${word} lower` : `${points} ${word} higher`;
+}
+
 function Index() {
   const [q, setQ] = useState("");
   const [sector, setSector] = useState("");
@@ -226,12 +234,23 @@ function Index() {
                       {research.status?.status === "running" && research.status.current === r.name ? "Researching…" : "Research"}
                     </button>
                     {r.assessed ? (
-                      <ScoreTip row={r}>
-                        <span className="inline-flex gap-2">
-                          <Score value={r.thesisFit} size={40} />
-                          {r.aiThoughts ? <Score value={r.predictedFit} size={40} stroke="stroke-deep" /> : <span className="grid h-10 w-10 place-items-center rounded-full border text-muted-foreground">—</span>}
-                        </span>
-                      </ScoreTip>
+                      <div className="shrink-0">
+                        <ScoreTip row={r}>
+                          <span className="inline-flex items-start gap-1.5">
+                            <span className="flex flex-col items-center">
+                              <Score value={r.thesisFit} size={40} />
+                              <span className="mt-1 text-[10px] leading-none text-muted-foreground">Real</span>
+                            </span>
+                            <span className="flex flex-col items-center">
+                              {r.aiThoughts ? <Score value={r.predictedFit} size={40} stroke="stroke-deep" /> : <span className="grid h-10 w-10 place-items-center rounded-full border text-muted-foreground">—</span>}
+                              <span className="mt-1 text-[10px] leading-none text-muted-foreground">Predicted</span>
+                            </span>
+                          </span>
+                        </ScoreTip>
+                        {r.aiThoughts && (
+                          <p className="mt-1 text-center text-[10px] font-medium leading-tight text-deep">{fitDifference(r.thesisFit, r.predictedFit)}</p>
+                        )}
+                      </div>
                     ) : <span className="grid h-10 w-10 place-items-center rounded-full border text-muted-foreground">—</span>}
                     <div className="min-w-0">
                       <ScoreTip row={r}>
@@ -304,6 +323,26 @@ const fields: { key: keyof Profile; label: string; long?: boolean }[] = [
 ];
 
 function ExploreDialog({ pick, onClose }: { pick: ExplorePick; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function add() {
+    if (saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      const created = await createStartupFromLink({ url: pick.website, name: pick.name });
+      queryClient.setQueryData(["research"], created.research);
+      await queryClient.invalidateQueries({ queryKey: ["startups"] });
+      await queryClient.invalidateQueries({ queryKey: ["sectors"] });
+      onClose();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "The company could not be added.");
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-deep/40 p-4 backdrop-blur-sm" onClick={onClose}>
       <div onClick={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-soft">
@@ -311,8 +350,17 @@ function ExploreDialog({ pick, onClose }: { pick: ExplorePick; onClose: () => vo
         <h2 className="mt-2 text-2xl font-semibold text-deep">{pick.name}</h2>
         <p className="mt-4 text-sm leading-relaxed text-deep">{pick.why}</p>
         <p className="mt-3 text-sm text-muted-foreground">{pick.country} · {pick.website}</p>
-        <div className="mt-6 flex justify-end">
-          <button type="button" onClick={onClose} className="rounded-full bg-ocean px-5 py-2 text-sm font-medium text-primary-foreground">Close</button>
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={onClose} className="rounded-full bg-secondary px-5 py-2 text-sm text-secondary-foreground">Close</button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => void add()}
+            className="rounded-full bg-ocean px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            {saving ? "Adding…" : "Research and add"}
+          </button>
         </div>
       </div>
     </div>

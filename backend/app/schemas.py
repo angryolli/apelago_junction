@@ -38,6 +38,7 @@ class Profile(BaseModel):
     website: str = ""
     hq: str = ""
     founders: str = ""
+    email: str = ""
     description: str = ""
     keywords: list[str] = Field(default_factory=list)
     problem: str = ""
