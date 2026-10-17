@@ -9,6 +9,8 @@ services:
       DATABASE_PATH: /app/data/radar.db
       CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
       WATCHFILES_FORCE_POLLING: "true"
+      UV_SYNC: "1"
+      UVICORN_RELOAD: "1"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4.1-mini}
       OPENAI_JUDGE_MODEL: ${OPENAI_JUDGE_MODEL:-gpt-4.1}

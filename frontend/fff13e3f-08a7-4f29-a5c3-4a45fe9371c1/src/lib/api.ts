@@ -20,13 +20,14 @@ export class ApiError extends Error {
 }
 
 function apiBase(): string {
+  const published = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
   if (typeof window !== "undefined") {
-    return "";
+    return published;
   }
 
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 
-  return env?.API_URL || "http://127.0.0.1:8000";
+  return (env?.API_URL || published || "http://127.0.0.1:8000").replace(/\/$/, "");
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
