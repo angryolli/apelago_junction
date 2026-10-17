@@ -116,17 +116,19 @@ export function DemoTour({
     const target = () => document.querySelector(`[data-tour="${step.target}"]`) as HTMLElement | null;
     const place = () => {
       if (step.id === "compare") {
-        const ticks = [...document.querySelectorAll('input[aria-label^="Compare"]')].slice(0, 4);
-        if (ticks.length === 0) {
+        const scroller = document.querySelector("tbody")?.closest(".overflow-auto");
+        const rows = [...document.querySelectorAll("tbody tr")].slice(0, 2);
+        if (!scroller || rows.length === 0) {
           setBox(null);
           return;
         }
-        const rects = ticks.map((node) => node.getBoundingClientRect());
-        const top = Math.min(...rects.map((rect) => rect.top));
-        const left = Math.min(...rects.map((rect) => rect.left));
-        const right = Math.max(...rects.map((rect) => rect.right));
-        const bottom = Math.max(...rects.map((rect) => rect.bottom));
-        setBox({ top, left, width: right - left, height: bottom - top });
+        const clip = scroller.getBoundingClientRect();
+        const rects = rows.map((row) => row.getBoundingClientRect());
+        const top = Math.max(clip.top, Math.min(...rects.map((rect) => rect.top)));
+        const left = Math.max(clip.left, Math.min(...rects.map((rect) => rect.left)));
+        const right = Math.min(clip.right, Math.max(...rects.map((rect) => rect.right)));
+        const bottom = Math.min(clip.bottom, Math.max(...rects.map((rect) => rect.bottom)));
+        setBox({ top, left, width: Math.max(0, right - left), height: Math.max(0, bottom - top) });
         return;
       }
       const node = target();
@@ -137,15 +139,20 @@ export function DemoTour({
       const rect = node.getBoundingClientRect();
       setBox({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
     };
-    const holdScroll = step.id === "grades";
+    const holdScroll = step.id === "grades" || step.id === "compare";
     let scroller: HTMLElement | null = null;
-    if (holdScroll || step.id === "compare") {
+    if (holdScroll) {
       const node = target();
-      scroller = node?.closest(".overflow-auto") ?? null;
-      if (node && scroller) {
-        const header = scroller.querySelector("thead")?.getBoundingClientRect().height ?? 0;
-        scroller.scrollTop += node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - header - 16;
-        scroller.scrollLeft = 0;
+      scroller = (node?.closest(".overflow-auto") ?? document.querySelector("tbody")?.closest(".overflow-auto")) as HTMLElement | null;
+      if (scroller) {
+        if (step.id === "compare") {
+          scroller.scrollTop = 0;
+          scroller.scrollLeft = 0;
+        } else if (node) {
+          const header = scroller.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+          scroller.scrollTop += node.getBoundingClientRect().top - scroller.getBoundingClientRect().top - header - 16;
+          scroller.scrollLeft = 0;
+        }
       }
     } else {
       target()?.scrollIntoView({ block: "center", inline: "nearest" });
