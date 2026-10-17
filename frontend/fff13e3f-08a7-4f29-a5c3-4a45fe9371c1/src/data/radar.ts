@@ -9,6 +9,17 @@ export type SourceHit = {
   found: boolean;
 };
 
+export type PitchSummary = {
+  filename: string;
+  overview: string;
+  problem: string;
+  solution: string;
+  traction: string;
+  team: string;
+  ask: string;
+  gaps: string[];
+};
+
 export type Startup = {
   id: string;
   name: string;
@@ -33,6 +44,7 @@ export type Startup = {
   assessed: boolean;
   judgeVerdict: string;
   judgeNotes: string;
+  pitch?: PitchSummary;
 };
 
 export type Profile = {

@@ -4,6 +4,7 @@ import os
 
 from app.assess import DIMENSION_NAMES
 from app.research.contact import find_published_contact
+from app.research.deck import attach_pitch
 from app.research.links import QUEUED_TAGLINE, search_queries
 from app.research.llm import JudgedAssessment, score_evidence
 from app.research.sources import collect_sources
@@ -20,21 +21,19 @@ def research_company(target: Target) -> Startup:
     if not os.environ.get("OPENAI_API_KEY"):
         startup.judge_notes = "Set OPENAI_API_KEY to score this evidence."
         startup.assessed = False
+    else:
+        try:
+            judged = score_evidence(
+                startup.name,
+                startup.sources,
+            )
+        except Exception as exc:
+            startup.judge_notes = f"Scoring failed: {exc}"
+            startup.assessed = False
+        else:
+            startup = apply_judgement(startup, judged)
 
-        return startup
-
-    try:
-        judged = score_evidence(
-            startup.name,
-            startup.sources,
-        )
-    except Exception as exc:
-        startup.judge_notes = f"Scoring failed: {exc}"
-        startup.assessed = False
-
-        return startup
-
-    return apply_judgement(startup, judged)
+    return attach_pitch(startup)
 
 
 def apply_judgement(startup: Startup, judged: JudgedAssessment) -> Startup:

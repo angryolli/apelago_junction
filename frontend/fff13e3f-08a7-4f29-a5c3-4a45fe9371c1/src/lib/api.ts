@@ -32,7 +32,7 @@ function apiBase(): string {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   headers.set("Accept", "application/json");
-  if (init?.body) {
+  if (init?.body && !(init.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -84,6 +84,18 @@ export type LinkStartupResult = {
   startup: Row;
   research: ResearchStatus;
 };
+
+export function createStartupWithDeck(body: { url: string; name?: string; deck?: File | null }): Promise<LinkStartupResult> {
+  const form = new FormData();
+  form.set("url", body.url);
+  form.set("name", body.name ?? "");
+  if (body.deck) form.set("deck", body.deck);
+
+  return request<LinkStartupResult>("/api/startups/with-deck", {
+    method: "POST",
+    body: form,
+  });
+}
 
 export function createStartupFromLink(body: { url: string; name?: string }): Promise<LinkStartupResult> {
   return request<LinkStartupResult>("/api/startups/from-link", {

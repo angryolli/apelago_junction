@@ -1,31 +1,28 @@
-Ocean Opportunity Radar — 
-From fragmented data to informed decisions. From startup discovery to real opportunities.
-Turning fragmented startup data into actionable investment intelligence for the blue economy.
+# Ocean Opportunity Radar
 
+Ocean Opportunity Radar turns fragmented startup data into actionable investment intelligence for the blue economy. It helps investors, accelerators, and ecosystem organizations discover promising ocean startups, judge their commercial and environmental potential, and find the funding or partners that can help them grow.
 
-The Problem
+## Areas
 
-Venture capital scouting is time-consuming and fragmented. Investors, accelerators, and ecosystem organizations must manually research startups across company websites, pitch decks, funding databases, and public records.
+- **Discover** — which startups deserve attention
+- **Evaluate** — why they are promising, and what risks remain
+- **Act** — which funding, investors, or partnerships could help them grow
 
-Comparing opportunities, evaluating investment readiness, and identifying suitable investors or strategic partners often requires extensive manual analysis.
+## Run
 
-For the blue economy, this challenge is even greater: promising ocean-focused startups must demonstrate both commercial potential and measurable environmental impact.
+1. Install Docker with Docker Compose.
+2. Copy the environment file and set your OpenAI key:
 
+   ```bash
+   cp .env.example .env
+   ```
 
+   Put your key in `OPENAI_API_KEY` inside `.env`.
 
+3. Start the app from the project root:
 
-The platform is designed around three essential questions:
+   ```bash
+   docker compose up --build
+   ```
 
-Discover: Which startups deserve our attention?
-
-Evaluate: Why are they promising, and what risks remain?
-
-Act: Which funding opportunities, investors, or partnerships could help them grow?
-
-
-
-
-Our Vision
-
-Make venture scouting faster, more transparent, and more actionable — helping capital and strategic support reach innovative startups that can create both economic value and meaningful environmental impact.
-
+4. Open [http://localhost:5173](http://localhost:5173).

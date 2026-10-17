@@ -3,11 +3,21 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from pydantic import ValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 from app.repository import Repository
 from app.research.compare import explain_match
+from app.research.deck import (
+    MAX_DECK_BYTES,
+    deck_text,
+    example_deck_bytes,
+    load_deck,
+    safe_filename,
+    store_deck,
+)
 from app.research.explore import ExploreError, find_one
 from app.research.inquire import investor_inquiry
 from app.research.jobs import enqueue, get_status, start_research
@@ -20,6 +30,7 @@ from app.schemas import (
     CreateFromLink,
     CreateStartup,
     LinkCreated,
+    PitchSummary,
     ResearchRequest,
     ResearchStatus,
     Startup,
@@ -39,6 +50,74 @@ def cors_origins() -> list[str]:
     )
 
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def _queue_website(
+    repo: Repository,
+    url: str,
+    name: str,
+    deck: tuple[str, bytes] | None = None,
+) -> LinkCreated:
+    """Store a new company when needed and research the website."""
+    existing = find_by_website(repo, url)
+    target = target_from_link(
+        url,
+        name,
+        existing,
+    )
+    startup = existing if existing is not None else queued_startup(target)
+    if deck is not None:
+        filename, data = deck
+        store_deck(target.id, filename, data)
+        startup.pitch = PitchSummary(
+            filename=filename,
+            gaps=["The deck summary is written when research finishes."],
+        )
+        repo.save(startup)
+    elif existing is None:
+        repo.save(startup)
+
+    return LinkCreated(
+        startup=startup,
+        research=enqueue(
+            repo,
+            [target],
+            [],
+        ),
+    )
+
+
+def _read_deck(deck: UploadFile | None) -> tuple[str, bytes] | None:
+    """Accept one pptx, or nothing when the upload was left empty."""
+    if deck is None or not deck.filename:
+        return None
+
+    filename = safe_filename(deck.filename)
+    data = deck.file.read(MAX_DECK_BYTES + 1)
+    if not data:
+        return None
+    if len(data) > MAX_DECK_BYTES:
+        raise HTTPException(status_code=413, detail="The pitch deck must be 8 MB or smaller.")
+    if not deck.filename.lower().endswith(".pptx"):
+        raise HTTPException(status_code=422, detail="Upload a .pptx pitch deck.")
+
+    try:
+        deck_text(data)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return filename, data
+
+
+def _deck_response(data: bytes, filename: str) -> Response:
+    """Send a pptx as a download."""
+    safe = safe_filename(filename)
+
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f'attachment; filename="{safe}"'},
+    )
 
 
 def blank_to_none(value: str | None) -> str | None:
@@ -132,26 +211,52 @@ def begin_research(body: ResearchRequest, repo: Repo) -> ResearchStatus:
     )
 
 
+@app.get("/api/example-deck")
+def download_example_deck() -> Response:
+    """Download the fictional sample pitch deck."""
+    return _deck_response(example_deck_bytes(), "Harborline-sample-deck.pptx")
+
+
+@app.get("/api/startups/{startup_id}/deck")
+def download_startup_deck(startup_id: str, repo: Repo) -> Response:
+    """Download the pitch deck uploaded for one startup."""
+    if repo.get(startup_id) is None:
+        raise HTTPException(status_code=404, detail="Startup not found")
+
+    stored = load_deck(startup_id)
+    if stored is None:
+        raise HTTPException(status_code=404, detail="No pitch deck is stored for this startup")
+
+    filename, data = stored
+
+    return _deck_response(data, filename)
+
+
 @app.post("/api/startups/from-link", status_code=201)
 def create_from_link(body: CreateFromLink, repo: Repo) -> LinkCreated:
     """Add a company from its website and research it in the background."""
-    existing = find_by_website(repo, body.url)
-    target = target_from_link(
-        body.url,
-        body.name,
-        existing,
-    )
-    startup = existing if existing is not None else queued_startup(target)
-    if existing is None:
-        repo.save(startup)
+    return _queue_website(repo, body.url, body.name)
 
-    return LinkCreated(
-        startup=startup,
-        research=enqueue(
-            repo,
-            [target],
-            [],
-        ),
+
+@app.post("/api/startups/with-deck", status_code=201)
+def create_with_deck(
+    repo: Repo,
+    url: Annotated[str, Form()],
+    name: Annotated[str, Form()] = "",
+    deck: Annotated[UploadFile | None, File()] = None,
+) -> LinkCreated:
+    """Add a company from its website and, when attached, summarise a pitch deck."""
+    try:
+        parsed = CreateFromLink(url=url, name=name)
+    except ValidationError as exc:
+        message = exc.errors()[0]["msg"] if exc.errors() else "Enter a website link."
+        raise HTTPException(status_code=422, detail=message) from exc
+
+    return _queue_website(
+        repo,
+        parsed.url,
+        parsed.name,
+        _read_deck(deck),
     )
 
 

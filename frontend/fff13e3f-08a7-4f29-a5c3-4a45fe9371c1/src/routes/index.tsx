@@ -3,8 +3,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
-import { emptyProfile, type Profile, type Row } from "@/data/radar";
-import { ApiError, createStartup, createStartupFromLink, exploreStartup, listSectors, listStartups, type ExplorePick } from "@/lib/api";
+import { type Row } from "@/data/radar";
+import { ApiError, createStartupFromLink, createStartupWithDeck, exploreStartup, listSectors, listStartups, type ExplorePick } from "@/lib/api";
 import { useResearch } from "@/lib/use-research";
 
 export const Route = createFileRoute("/")({
@@ -313,15 +313,6 @@ function Index() {
   );
 }
 
-const fields: { key: keyof Profile; label: string; long?: boolean }[] = [
-  { key: "website", label: "Website" }, { key: "hq", label: "Headquarters (City, Country)" }, { key: "founders", label: "Founders" },
-  { key: "description", label: "One-line description", long: true }, { key: "problem", label: "Problem", long: true },
-  { key: "solution", label: "Solution / product", long: true }, { key: "businessModel", label: "Business model" },
-  { key: "customers", label: "Target customers" }, { key: "traction", label: "Traction", long: true },
-  { key: "funding", label: "Funding history", long: true }, { key: "advantage", label: "Competitive advantage", long: true },
-  { key: "competitors", label: "Competitors", long: true }, { key: "thesis", label: "Investment thesis / risks", long: true },
-];
-
 function ExploreDialog({ pick, onClose }: { pick: ExplorePick; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
@@ -419,60 +410,64 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
 
 function IngestDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
+  const [url, setUrl] = useState("");
   const [name, setName] = useState("");
-  const [stage, setStage] = useState("Pre-seed");
-  const [kw, setKw] = useState("");
-  const [p, setP] = useState<Profile>(emptyProfile);
+  const [deck, setDeck] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const inputCls = "w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || saving) return;
+    if (!url.trim() || saving) return;
     setSaving(true);
     setError("");
     try {
-      await createStartup({
+      const created = await createStartupWithDeck({
+        url: url.trim(),
         name: name.trim(),
-        stage,
-        profile: { ...p, keywords: kw.split(",").map((k) => k.trim()).filter(Boolean) },
+        deck,
       });
+      queryClient.setQueryData(["research"], created.research);
       await queryClient.invalidateQueries({ queryKey: ["startups"] });
       await queryClient.invalidateQueries({ queryKey: ["sectors"] });
       onClose();
-    } catch {
-      setError("Could not save this startup. Check that the API is running.");
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Enter a website link such as https://company.com.");
       setSaving(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/40 p-4 backdrop-blur-sm" onClick={onClose}>
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2xl bg-card p-6 shadow-soft">
-        <h2 className="text-xl font-semibold text-deep">Add a new startup</h2>
-        <p className="mb-5 text-sm text-muted-foreground">It will appear in the review table right away.</p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="text-sm">Name *<input required className={inputCls} value={name} onChange={(e) => setName(e.target.value)} /></label>
-          <label className="text-sm">Stage
-            <select className={inputCls} value={stage} onChange={(e) => setStage(e.target.value)}>
-              {["Pre-seed", "Seed", "Series A", "Series B+"].map((s) => <option key={s}>{s}</option>)}
-            </select>
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-soft">
+        <h2 className="text-xl font-semibold text-deep">Add a startup</h2>
+        <p className="mb-5 text-sm text-muted-foreground">The company is added now. A research run fills the table from its website. A pitch deck is summarised from the slides.</p>
+        <div className="grid gap-4">
+          <label className="text-sm">Website link *
+            <input required type="text" inputMode="url" placeholder="https://company.com" className={inputCls} value={url} onChange={(e) => setUrl(e.target.value)} />
           </label>
-          <label className="text-sm sm:col-span-2">Industry / keywords (comma separated)<input className={inputCls} value={kw} onChange={(e) => setKw(e.target.value)} placeholder="AI, ClimateTech, B2B" /></label>
-          {fields.map((f) => (
-            <label key={f.key} className={`text-sm ${f.long ? "sm:col-span-2" : ""}`}>{f.label}
-              {f.long
-                ? <textarea rows={2} className={inputCls} value={p[f.key] as string} onChange={(e) => setP({ ...p, [f.key]: e.target.value })} />
-                : <input className={inputCls} value={p[f.key] as string} onChange={(e) => setP({ ...p, [f.key]: e.target.value })} />}
-            </label>
-          ))}
+          <label className="text-sm">Name
+            <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Leave blank to take the name from the site" />
+          </label>
+          <label className="text-sm">Pitch deck
+            <input
+              type="file"
+              accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+              className={inputCls}
+              onChange={(e) => setDeck(e.target.files?.[0] ?? null)}
+            />
+          </label>
         </div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          <a className="text-primary hover:underline" href="/api/example-deck" download="Harborline-sample-deck.pptx">Download the example pitch deck</a>
+          . Harborline Sensors is fictional, so the summary only repeats the sample slides.
+        </p>
         {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} className="rounded-full bg-secondary px-5 py-2 text-sm text-secondary-foreground">Cancel</button>
           <button type="submit" disabled={saving} className="rounded-full bg-ocean px-5 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">
-            {saving ? "Adding…" : "Add to table"}
+            {saving ? "Starting research…" : "Research and add"}
           </button>
         </div>
       </form>

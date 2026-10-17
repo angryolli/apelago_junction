@@ -52,6 +52,17 @@ class Profile(BaseModel):
     thesis: str = ""
 
 
+class PitchSummary(BaseModel):
+    filename: str = ""
+    overview: str = ""
+    problem: str = ""
+    solution: str = ""
+    traction: str = ""
+    team: str = ""
+    ask: str = ""
+    gaps: list[str] = Field(default_factory=list)
+
+
 class Startup(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -94,6 +105,7 @@ class Startup(BaseModel):
     assessed: bool = False
     judge_verdict: str = Field(default="", alias="judgeVerdict")
     judge_notes: str = Field(default="", alias="judgeNotes")
+    pitch: PitchSummary = Field(default_factory=PitchSummary)
 
 
 class ResearchRequest(BaseModel):

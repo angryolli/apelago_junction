@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
+import { type PitchSummary } from "@/data/radar";
 import { ApiError, createInquiry, getStartup, type Inquiry } from "@/lib/api";
 
 export const Route = createFileRoute("/startups/$id")({
@@ -88,6 +89,44 @@ function headerFacts(startup: { sector: string; country: string; stage: string; 
     recorded(startup.raised) ? `Raised ${startup.raised}` : "",
   ].filter(recorded);
   return { facts, stageNote: stageNote ? stage : "" };
+}
+
+function PitchDeck({ startupId, pitch }: { startupId: string; pitch?: PitchSummary }) {
+  if (!pitch?.filename && !pitch?.overview && !pitch?.gaps?.length) return null;
+  const blocks = [
+    ["Problem", pitch.problem],
+    ["Solution", pitch.solution],
+    ["Traction", pitch.traction],
+    ["Team", pitch.team],
+    ["The ask", pitch.ask],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+
+  return (
+    <section className="mt-6 rounded-2xl border bg-card p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-semibold text-deep">Pitch deck</h2>
+        {pitch.filename && (
+          <a href={`/api/startups/${encodeURIComponent(startupId)}/deck`} className="text-sm font-medium text-primary hover:underline">
+            Download {pitch.filename}
+          </a>
+        )}
+      </div>
+      {pitch.overview && <p className="mt-3 max-w-3xl text-sm leading-relaxed text-deep">{pitch.overview}</p>}
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        {blocks.map(([title, text]) => (
+          <div key={title}>
+            <h3 className="text-sm font-semibold text-deep">{title}</h3>
+            <p className="mt-1 text-sm leading-relaxed text-deep">{text}</p>
+          </div>
+        ))}
+      </div>
+      {(pitch.gaps?.length ?? 0) > 0 && (
+        <ul className="mt-4 space-y-2 text-sm">
+          {pitch.gaps.map((gap) => <li key={gap} className="flex gap-2"><span className="text-warning">▲</span>{gap}</li>)}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 function ContactCard({ founders, website, email }: { founders: string; website: string; email: string }) {
@@ -249,6 +288,7 @@ function Detail() {
       </div>
 
       <ContactCard founders={s.profile.founders} website={s.profile.website} email={s.profile.email} />
+      <PitchDeck startupId={s.id} pitch={s.pitch} />
 
       {inquiry && (
         <section className="mt-6 rounded-2xl border bg-card p-6">
