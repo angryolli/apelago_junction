@@ -5,13 +5,13 @@ export function Shell({ children, wide }: { children: ReactNode; wide?: boolean 
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b bg-card/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full bg-ocean shadow-soft" />
-            <div>
-              <div className="font-display text-lg font-semibold text-deep">Ocean Opportunity Radar</div>
-              <div className="text-xs text-muted-foreground">VC scouting · Redstone × A'Pelago</div>
-            </div>
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+          <Link to="/" className="flex items-center">
+            <img
+              src="/logo.png"
+              alt="Ocean Opportunity Radar for A'Pelago × Redstone"
+              className="h-24 w-auto"
+            />
           </Link>
           <span className="rounded-full bg-primary-soft px-3 py-1 text-xs font-medium text-deep">Prototype</span>
         </div>
