@@ -1,6 +1,7 @@
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { DemoTour, homeDemo, markStartupDemo } from "@/components/DemoTour";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
 import { type Row } from "@/data/radar";
@@ -123,7 +124,7 @@ function Index() {
           <h1 className="text-3xl font-semibold text-deep">Startup review</h1>
           <p className="text-sm text-muted-foreground">{list.length} {list.length === 1 ? "startup" : "startups"} · ranked by thesis fit · click a name to open the full assessment</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3" data-tour="filters">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name…" aria-label="Search by name"
             className="h-10 w-64 rounded-full border bg-card px-4 text-sm outline-none focus:border-primary" />
           <div className="relative w-64">
@@ -136,7 +137,7 @@ function Index() {
               <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <div className="relative z-30">
+          <div className="relative z-20">
             <button
               type="button"
               aria-expanded={columnsOpen}
@@ -168,7 +169,7 @@ function Index() {
           <button onClick={() => setLinkOpen(true)} className="h-10 rounded-full border bg-card px-5 text-sm font-medium text-deep hover:bg-muted">
             Add from link
           </button>
-          <button onClick={() => setOpen(true)} className="h-10 rounded-full bg-ocean px-5 text-sm font-medium text-primary-foreground shadow-soft hover:opacity-90">
+          <button data-tour="deck" onClick={() => setOpen(true)} className="h-10 rounded-full bg-ocean px-5 text-sm font-medium text-primary-foreground shadow-soft hover:opacity-90">
             + Add startup
           </button>
         </div>
@@ -219,6 +220,7 @@ function Index() {
                   <div className="flex items-start gap-3">
                     <input
                       type="checkbox"
+                      data-tour={list[0]?.id === r.id ? "compare" : undefined}
                       checked={picked.includes(r.id)}
                       disabled={!picked.includes(r.id) && picked.length >= compareLimit}
                       onChange={() => togglePick(r.id)}
@@ -234,7 +236,7 @@ function Index() {
                       {research.status?.status === "running" && research.status.current === r.name ? "Researching…" : "Research"}
                     </button>
                     {r.assessed ? (
-                      <div className="shrink-0">
+                      <div className="shrink-0" data-tour={list[0]?.id === r.id ? "grades" : undefined}>
                         <ScoreTip row={r}>
                           <span className="inline-flex items-start gap-1.5">
                             <span className="flex flex-col items-center">
@@ -254,7 +256,7 @@ function Index() {
                     ) : <span className="grid h-10 w-10 place-items-center rounded-full border text-muted-foreground">—</span>}
                     <div className="min-w-0">
                       <ScoreTip row={r}>
-                        <Link to="/startups/$id" params={{ id: r.id }} className="text-sm font-semibold text-deep hover:text-primary">{r.name}</Link>
+                        <Link data-tour={list[0]?.id === r.id ? "open" : undefined} to="/startups/$id" params={{ id: r.id }} onClick={() => markStartupDemo()} className="text-sm font-semibold text-deep hover:text-primary">{r.name}</Link>
                       </ScoreTip>
                       <div className="text-muted-foreground">{r.stage}</div>
                       <button
@@ -307,6 +309,14 @@ function Index() {
       </div>
 
       {pick && <ExploreDialog pick={pick} onClose={() => setPick(null)} />}
+      <DemoTour
+        steps={homeDemo}
+        ready={list.length > 0}
+        onAdvance={() => {
+          const first = list[0];
+          if (first) void navigate({ to: "/startups/$id", params: { id: first.id } });
+        }}
+      />
       {open && <IngestDialog onClose={() => setOpen(false)} />}
       {linkOpen && <LinkDialog onClose={() => setLinkOpen(false)} />}
     </Shell>

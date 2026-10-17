@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { DemoTour, startupDemo } from "@/components/DemoTour";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
 import { type PitchSummary } from "@/data/radar";
@@ -136,7 +137,7 @@ function ContactCard({ founders, website, email }: { founders: string; website: 
   const note = founders.trim() && !samePerson ? founders.trim() : "";
 
   return (
-    <section className="mt-6 rounded-2xl border bg-card p-6">
+    <section data-tour="contact" className="mt-6 rounded-2xl border bg-card p-6">
       <p className="text-xs uppercase tracking-widest text-muted-foreground">Contact for further information</p>
       <div className="mt-4 flex items-start gap-4">
         <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-ocean text-sm font-semibold text-primary-foreground">
@@ -267,6 +268,7 @@ function Detail() {
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"
+              data-tour="questions"
               disabled={asking}
               onClick={() => {
                 setAsking(true);
@@ -362,6 +364,7 @@ function Detail() {
         </section>
       )}
 
+      <DemoTour steps={startupDemo} ready />
       <section className="mt-6 rounded-2xl bg-ocean p-8 text-primary-foreground shadow-soft">
         <h2 className="mb-4 text-xl font-semibold">Recommended next steps</h2>
         <ol className="grid gap-3 md:grid-cols-3">
