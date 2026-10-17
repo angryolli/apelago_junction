@@ -174,6 +174,13 @@ class CompareResult(BaseModel):
     explanation: str
 
 
+class ExploreResult(BaseModel):
+    name: str
+    why: str
+    country: str
+    website: str
+
+
 class CreateStartup(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     stage: str = "Pre-seed"

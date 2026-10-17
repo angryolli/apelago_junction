@@ -38,7 +38,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const response = await fetch(`${apiBase()}${path}`, { ...init, headers });
   if (!response.ok) {
-    throw new ApiError(response.status, `Request failed (${response.status})`);
+    let message = `Request failed (${response.status})`;
+    try {
+      const body = await response.json() as { detail?: unknown };
+      if (typeof body.detail === "string" && body.detail) message = body.detail;
+    } catch {
+      /* The status line is enough when the body is not JSON. */
+    }
+    throw new ApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;
@@ -96,6 +103,17 @@ export function compareStartups(body: { ids: string[]; thesis: string }): Promis
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export type ExplorePick = {
+  name: string;
+  why: string;
+  country: string;
+  website: string;
+};
+
+export function exploreStartup(): Promise<ExplorePick> {
+  return request<ExplorePick>("/api/explore", { method: "POST" });
 }
 
 export function createStartup(body: { name: string; stage: string; profile: Profile }): Promise<Row> {

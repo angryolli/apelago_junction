@@ -220,6 +220,32 @@ def test_compare_rejects_one_startup(client: TestClient) -> None:
     assert response.status_code == 422
 
 
+def test_explore_returns_a_startup_outside_the_table(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.schemas import ExploreResult
+
+    monkeypatch.setattr(
+        "app.main.find_one",
+        lambda startups: ExploreResult(
+            name="Foam Tide",
+            why="It recovers harbour foam in Finland.",
+            country="Finland",
+            website="https://foamtide.example",
+        ),
+    )
+    response = client.post("/api/explore")
+
+    assert response.status_code == 200
+    assert response.json()["name"] == "Foam Tide"
+    assert response.json()["name"] not in {item["name"] for item in client.get("/api/startups").json()}
+
+
+def test_explore_requires_an_api_key(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    response = client.post("/api/explore")
+
+    assert response.status_code == 503
+
+
 def test_compare_unknown_startup(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     response = client.post(

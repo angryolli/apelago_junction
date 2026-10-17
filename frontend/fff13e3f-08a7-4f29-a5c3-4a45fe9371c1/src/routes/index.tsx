@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
 import { emptyProfile, type Profile, type Row } from "@/data/radar";
-import { createStartup, createStartupFromLink, listSectors, listStartups } from "@/lib/api";
+import { ApiError, createStartup, createStartupFromLink, exploreStartup, listSectors, listStartups, type ExplorePick } from "@/lib/api";
 import { useResearch } from "@/lib/use-research";
 
 export const Route = createFileRoute("/")({
@@ -62,6 +62,9 @@ function Index() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [thoughtsId, setThoughtsId] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
+  const [exploring, setExploring] = useState(false);
+  const [exploreError, setExploreError] = useState("");
+  const [pick, setPick] = useState<ExplorePick | null>(null);
   const navigate = useNavigate();
   const research = useResearch();
   const startupsQuery = useQuery({
@@ -210,6 +213,28 @@ function Index() {
         )}
       </div>
 
+      <div className="-mx-6 mt-8">
+        {exploreError && <p className="px-6 pb-3 text-sm text-destructive">{exploreError}</p>}
+        <button
+          type="button"
+          disabled={exploring}
+          onClick={() => {
+            setExploring(true);
+            setExploreError("");
+            void exploreStartup()
+              .then((found) => setPick(found))
+              .catch((error: unknown) => {
+                setExploreError(error instanceof ApiError ? error.message : "The explore request failed.");
+              })
+              .finally(() => setExploring(false));
+          }}
+          className="w-full bg-ocean px-6 py-6 text-base font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+        >
+          {exploring ? "Looking for an EU startup…" : "Explore and find one EU startup"}
+        </button>
+      </div>
+
+      {pick && <ExploreDialog pick={pick} onClose={() => setPick(null)} />}
       {open && <IngestDialog onClose={() => setOpen(false)} />}
       {linkOpen && <LinkDialog onClose={() => setLinkOpen(false)} />}
     </Shell>
@@ -224,6 +249,22 @@ const fields: { key: keyof Profile; label: string; long?: boolean }[] = [
   { key: "funding", label: "Funding history", long: true }, { key: "advantage", label: "Competitive advantage", long: true },
   { key: "competitors", label: "Competitors", long: true }, { key: "thesis", label: "Investment thesis / risks", long: true },
 ];
+
+function ExploreDialog({ pick, onClose }: { pick: ExplorePick; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-deep/40 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div onClick={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-2xl bg-card p-6 shadow-soft">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">EU startup</p>
+        <h2 className="mt-2 text-2xl font-semibold text-deep">{pick.name}</h2>
+        <p className="mt-4 text-sm leading-relaxed text-deep">{pick.why}</p>
+        <p className="mt-3 text-sm text-muted-foreground">{pick.country} · {pick.website}</p>
+        <div className="mt-6 flex justify-end">
+          <button type="button" onClick={onClose} className="rounded-full bg-ocean px-5 py-2 text-sm font-medium text-primary-foreground">Close</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function LinkDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();

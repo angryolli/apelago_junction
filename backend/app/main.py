@@ -8,11 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.repository import Repository
 from app.research.compare import explain_match
+from app.research.explore import ExploreError, find_one
 from app.research.jobs import enqueue, get_status, start_research
 from app.research.links import find_by_website, queued_startup, target_from_link
 from app.schemas import (
     CompareRequest,
     CompareResult,
+    ExploreResult,
     CreateFromLink,
     CreateStartup,
     LinkCreated,
@@ -172,6 +174,16 @@ def compare_startups(body: CompareRequest, repo: Repo) -> CompareResult:
         preferred_name=preferred.name,
         explanation=judgement.explanation,
     )
+
+
+@app.post("/api/explore")
+def explore_startup(repo: Repo) -> ExploreResult:
+    """Name one EU startup that is not already in the table."""
+    try:
+        return find_one(repo.list_startups())
+    except ExploreError as exc:
+        status = 503 if "OPENAI_API_KEY" in exc.message else 422
+        raise HTTPException(status_code=status, detail=exc.message) from exc
 
 
 @app.post("/api/startups", status_code=201)
