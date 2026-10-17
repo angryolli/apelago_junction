@@ -31,6 +31,21 @@ export const Route = createFileRoute("/startups/$id")({
   component: Detail,
 });
 
+function judgePoints(notes: string): string[] {
+  const parts = notes
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return parts.length > 0 ? parts : [notes];
+}
+
+function verdictStyle(verdict: string): string {
+  if (verdict === "supported") return "bg-primary-soft text-primary";
+  if (verdict === "revised") return "bg-warning/15 text-deep";
+  return "bg-muted text-muted-foreground";
+}
+
 function roleFor(text: string, name: string): string {
   const roleMatch = text.match(new RegExp(`${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[^.]*?\\bas ([^.;,]{3,80})`, "i"));
   const titled = text.match(/,\s*([A-Za-z][A-Za-z &-]{1,32})\s*$/)?.[1].trim();
@@ -345,9 +360,24 @@ function Detail() {
         <section className="mt-6 rounded-2xl border bg-card p-6">
           <h2 className="font-semibold text-deep">Evidence from sources</h2>
           {s.judgeNotes && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {s.judgeVerdict ? `Judge: ${s.judgeVerdict}. ` : ""}{s.judgeNotes}
-            </p>
+            <div className="mt-4 rounded-xl bg-secondary/70 p-4">
+              <div className="flex items-center gap-2">
+                <p className="text-xs uppercase tracking-widest text-muted-foreground">Judge</p>
+                {s.judgeVerdict && (
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${verdictStyle(s.judgeVerdict)}`}>
+                    {s.judgeVerdict}
+                  </span>
+                )}
+              </div>
+              <ul className="mt-3 space-y-2 text-sm leading-relaxed text-deep">
+                {judgePoints(s.judgeNotes).map((point) => (
+                  <li key={point} className="flex gap-2">
+                    <span className="mt-1 text-primary">●</span>
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           <div className="mt-4 grid gap-4 lg:grid-cols-2">
             {s.sources.map((source) => (
