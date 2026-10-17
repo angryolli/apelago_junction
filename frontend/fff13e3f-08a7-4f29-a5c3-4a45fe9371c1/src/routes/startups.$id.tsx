@@ -4,7 +4,6 @@ import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { ScoreTip } from "@/components/ScoreTip";
 import { Shell, Score } from "@/components/Shell";
 import { ApiError, createInquiry, getStartup, type Inquiry } from "@/lib/api";
-import { useResearch } from "@/lib/use-research";
 
 export const Route = createFileRoute("/startups/$id")({
   loader: async ({ params }) => {
@@ -59,7 +58,6 @@ function Detail() {
     staleTime: 30_000,
     ...(loaded ? { initialData: loaded } : {}),
   });
-  const research = useResearch();
   const [shownFor, setShownFor] = useState(id);
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
   const [asking, setAsking] = useState(false);
@@ -118,13 +116,6 @@ function Detail() {
           )}
           <div className="mt-4 flex flex-wrap gap-3">
             <button
-              onClick={() => void research.start({ ids: [s.id] })}
-              disabled={research.status?.status === "running"}
-              className="h-10 rounded-full bg-ocean px-5 text-sm font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {research.status?.status === "running" ? `Researching ${research.status.current || "sources"}…` : "Research this company"}
-            </button>
-            <button
               type="button"
               disabled={asking}
               onClick={() => {
@@ -137,7 +128,7 @@ function Detail() {
                   })
                   .finally(() => setAsking(false));
               }}
-              className="h-10 rounded-full border bg-card px-5 text-sm font-medium text-deep disabled:opacity-60"
+              className="h-10 rounded-full bg-ocean px-5 text-sm font-medium text-primary-foreground disabled:opacity-60"
             >
               {asking ? "Writing questions…" : "Investor questions"}
             </button>

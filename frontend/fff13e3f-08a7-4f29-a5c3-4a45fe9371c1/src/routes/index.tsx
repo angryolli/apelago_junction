@@ -21,13 +21,29 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+function ReadinessMeter({ label, value }: { label: string; value: number }) {
+  return (
+    <div>
+      <div className="mb-0.5 flex items-center justify-between gap-2">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-semibold text-deep">{value}</span>
+      </div>
+      <div className="flex gap-0.5" aria-hidden="true">
+        {Array.from({ length: 10 }, (_, index) => (
+          <span key={index} className={`h-1.5 flex-1 rounded-sm ${index < value ? "bg-primary" : "bg-muted"}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const cols: { key: string; label: string; w: string; get: (r: Row) => React.ReactNode }[] = [
-  { key: "readiness", label: "Readiness 1–9", w: "w-40", get: (r) => r.assessed ? (
-    <div className="space-y-0.5 whitespace-nowrap">
-      <div>Ocean {r.readiness.impact}</div>
-      <div>Business {r.readiness.business}</div>
-      <div>Tech {r.readiness.tech}</div>
-      <div>Investment {r.readiness.investment}</div>
+  { key: "readiness", label: "Readiness 1–10", w: "w-52", get: (r) => r.assessed ? (
+    <div className="space-y-2">
+      <ReadinessMeter label="Ocean" value={r.readiness.impact} />
+      <ReadinessMeter label="Business" value={r.readiness.business} />
+      <ReadinessMeter label="Tech" value={r.readiness.tech} />
+      <ReadinessMeter label="Investment" value={r.readiness.investment} />
     </div>
   ) : "Not assessed" },
   { key: "match", label: "Top match", w: "w-52", get: (r) => {
@@ -65,7 +81,7 @@ function Index() {
   const [exploring, setExploring] = useState(false);
   const [exploreError, setExploreError] = useState("");
   const [pick, setPick] = useState<ExplorePick | null>(null);
-  const [hiddenCols, setHiddenCols] = useState<string[]>([]);
+  const [hiddenCols, setHiddenCols] = useState<string[]>(["match", "bm", "comp"]);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const navigate = useNavigate();
   const research = useResearch();
@@ -99,14 +115,19 @@ function Index() {
           <h1 className="text-3xl font-semibold text-deep">Startup review</h1>
           <p className="text-sm text-muted-foreground">{list.length} {list.length === 1 ? "startup" : "startups"} · ranked by thesis fit · click a name to open the full assessment</p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name…" aria-label="Search by name"
-            className="h-10 w-64 rounded-full border bg-card px-4 text-sm outline-none focus:ring-2 focus:ring-ring" />
-          <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Filter by sector"
-            className="h-10 rounded-full border bg-card px-4 text-sm outline-none focus:ring-2 focus:ring-ring">
-            <option value="">All sectors</option>
-            {(sectorsQuery.data ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
+            className="h-10 w-64 rounded-full border bg-card px-4 text-sm outline-none focus:border-primary" />
+          <div className="relative w-64">
+            <select value={sector} onChange={(e) => setSector(e.target.value)} aria-label="Filter by sector"
+              className="h-10 w-full appearance-none truncate rounded-full border bg-card pl-4 pr-10 text-sm text-deep outline-none focus:border-primary">
+              <option value="">All sectors</option>
+              {(sectorsQuery.data ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+            <svg viewBox="0 0 20 20" aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-deep">
+              <path d="M5.5 7.5 10 12l4.5-4.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
           <div className="relative z-30">
             <button
               type="button"
