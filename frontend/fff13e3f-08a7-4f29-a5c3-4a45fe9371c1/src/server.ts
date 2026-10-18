@@ -59,13 +59,26 @@ async function proxyApi(request: Request): Promise<Response> {
   const incoming = new URL(request.url);
   const headers = new Headers(request.headers);
   headers.delete("host");
+  headers.delete("content-length");
+  headers.delete("accept-encoding");
   const hasBody = request.method !== "GET" && request.method !== "HEAD";
 
-  return fetch(`${origin}${incoming.pathname}${incoming.search}`, {
+  const upstream = await fetch(`${origin}${incoming.pathname}${incoming.search}`, {
     method: request.method,
     headers,
     body: hasBody ? await request.arrayBuffer() : undefined,
     redirect: "manual",
+  });
+  const body = await upstream.arrayBuffer();
+  const responseHeaders = new Headers(upstream.headers);
+  responseHeaders.delete("content-encoding");
+  responseHeaders.delete("content-length");
+  responseHeaders.delete("transfer-encoding");
+
+  return new Response(body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: responseHeaders,
   });
 }
 
