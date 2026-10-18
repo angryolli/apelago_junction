@@ -45,9 +45,9 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 function apiOrigin(): string {
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  const proc = (globalThis as Record<string, { env?: Record<string, string | undefined> } | undefined>)["process"];
 
-  return env?.API_URL?.replace(/\/$/, "") ?? "";
+  return proc?.env?.API_URL?.replace(/\/$/, "") ?? "";
 }
 
 async function proxyApi(request: Request): Promise<Response> {

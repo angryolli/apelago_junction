@@ -19,15 +19,19 @@ export class ApiError extends Error {
   }
 }
 
+function serverEnv(name: string): string {
+  const proc = (globalThis as Record<string, { env?: Record<string, string | undefined> } | undefined>)["process"];
+
+  return proc?.env?.[name]?.replace(/\/$/, "") ?? "";
+}
+
 function apiBase(): string {
   const published = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
   if (typeof window !== "undefined") {
     return published;
   }
 
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
-
-  return (env?.API_URL || published || "http://127.0.0.1:8000").replace(/\/$/, "");
+  return serverEnv("API_URL") || published || "http://127.0.0.1:8000";
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

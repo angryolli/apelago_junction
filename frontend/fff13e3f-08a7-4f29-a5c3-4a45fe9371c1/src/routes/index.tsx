@@ -387,8 +387,13 @@ function LinkDialog({ onClose }: { onClose: () => void }) {
       await queryClient.invalidateQueries({ queryKey: ["startups"] });
       await queryClient.invalidateQueries({ queryKey: ["sectors"] });
       onClose();
-    } catch {
-      setError("Enter a website link such as https://company.com.");
+    } catch (caught) {
+      const message = caught instanceof ApiError
+        ? caught.message
+        : caught instanceof Error && caught.message
+          ? caught.message
+          : "The company could not be added.";
+      setError(message);
       setSaving(false);
     }
   };
@@ -443,7 +448,12 @@ function IngestDialog({ onClose }: { onClose: () => void }) {
       await queryClient.invalidateQueries({ queryKey: ["sectors"] });
       onClose();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : "Enter a website link such as https://company.com.");
+      const message = caught instanceof ApiError
+        ? caught.message
+        : caught instanceof Error && caught.message
+          ? caught.message
+          : "The company could not be added.";
+      setError(message);
       setSaving(false);
     }
   };
